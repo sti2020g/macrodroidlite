@@ -19,12 +19,34 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - uses: gradle/actions/setup-gradle@v3
+      - name: Instalar Gradle
+        run: |
+          curl -sLo /tmp/gradle-8.5-bin.zip \
+            "https://services.gradle.org/distributions/gradle-8.5-bin.zip"
+          unzip -q /tmp/gradle-8.5-bin.zip -d /opt
+          echo "/opt/gradle-8.5/bin" >> $GITHUB_PATH
+          gradle --version
+
+      - name: Configurar Android SDK
+        run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          mkdir -p $ANDROID_HOME
+          # Install cmdline-tools
+          curl -sLo /tmp/cmdline-tools.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          mv /tmp/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            --sdk_root=$ANDROID_HOME \
+            "platforms;android-34" \
+            "build-tools;34.0.0" 2>&1 | tail -5
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          # Create local.properties so Gradle finds the SDK
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
 
       - name: Build APK
         run: gradle assembleDebug --no-daemon
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
 
       - name: Subir APK como artifact
         uses: actions/upload-artifact@v4
