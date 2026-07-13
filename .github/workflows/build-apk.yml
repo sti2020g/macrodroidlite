@@ -19,6 +19,18 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Instalar Android SDK
+        run: |
+          # Instalar SDK cmdline-tools
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          cd $ANDROID_HOME/cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          mv cmdline-tools latest
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-34" "build-tools;34.0.0" 2>&1 | tail -5
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+
       - name: Instalar Gradle
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
@@ -27,6 +39,8 @@ jobs:
 
       - name: Build APK (debug)
         run: gradle assembleDebug
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
 
       - name: Subir APK como artifact
         uses: actions/upload-artifact@v4
