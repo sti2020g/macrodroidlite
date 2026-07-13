@@ -19,30 +19,33 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - uses: gradle/actions/setup-gradle@v3
-
-      - name: Inicializar Gradle wrapper
-        run: gradle wrapper --gradle-version=8.5
-
-      - name: Aceptar licencias Android
-        run: |
-          mkdir -p ~/.android
-          echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > ~/.android/repositories.cfg
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
-
-      - name: Instalar Android SDK
-        run: |
-          # Crear SDK root
-          mkdir -p $ANDROID_HOME/cmdline-tools
-          cd /tmp
-          curl -sLo cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q cmdline-tools.zip
-          mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME \
-            "platforms;android-34" \
-            "build-tools;34.0.0" 2>&1 | tail -5
+      - name: Instalar Android SDK + Build
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          # SDK (pre-instalado en el runner, solo instalar platform si no existe)
+          mkdir -p $ANDROID_HOME
+          ls $ANDROID_HOME/platforms/ 2>/dev/null || echo "No platforms"
+          # Instalar cmdline-tools si no están
+          if [ ! -d "$ANDROID_HOME/cmdline-tools" ]; then
+            echo "Instalando cmdline-tools..."
+            curl -sLo /tmp/cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q /tmp/cmdline-tools.zip -d /tmp/
+            mkdir -p $ANDROID_HOME/cmdline-tools
+            mv /tmp/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          fi
+          # Instalar platform 34 si no existe
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME \
+            "platforms;android-34" "build-tools;34.0.0" 2>&1 | tail -3 || true
+          # Crear local.properties
+          echo "sdk.dir=$ANDROID_HOME" > app/local.properties
+          echo "ANDROID_HOME=$ANDROID_HOME"
+
+      - name: Descargar Gradle wrapper
+        run: |
+          curl -sLo gradle/wrapper/gradle-wrapper.jar \
+            "https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar"
+          chmod +x gradlew
 
       - name: Build APK
         run: ./gradlew assembleDebug

@@ -9,5 +9,5 @@
 .cxx
 local.properties
 /app/build
-gradlew
 gradle/wrapper/gradle-wrapper.jar
+app/local.properties
