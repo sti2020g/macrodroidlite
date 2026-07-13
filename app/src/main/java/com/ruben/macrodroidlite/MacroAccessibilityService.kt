@@ -16,30 +16,30 @@ class MacroAccessibilityService : AccessibilityService() {
         var instance: MacroAccessibilityService? = null
             private set
 
-        // Estados
-        private var _isRecording = false
-        val isRecording: Boolean get() = _isRecording
-
-        private var _isPlaying = false
-        val isPlaying: Boolean get() = _isPlaying
-
-        // Secuencia grabada
-        private val _recordedSteps = mutableListOf<MacroStep>()
-        val recordedSteps: List<MacroStep> get() = _recordedSteps.toList()
-
         // Listener para cambios de estado
         var onStateChanged: (() -> Unit)? = null
-        var onProgress: ((Int, Int) -> Unit)? = null // paso actual, total
+        var onProgress: ((Int, Int) -> Unit)? = null
 
         private const val SWIPE_DURATION_MS = 300L
         private const val PAUSE_BETWEEN = 200L
-
-        // Coordenadas de inicio de toque
-        private var touchStartX = 0f
-        private var touchStartY = 0f
-        private var touchStartTime = 0L
-        private var isTrackingTouch = false
     }
+
+    // Estados (instancia, no companion)
+    private var _isRecording = false
+    val isRecording: Boolean get() = _isRecording
+
+    private var _isPlaying = false
+    val isPlaying: Boolean get() = _isPlaying
+
+    // Secuencia grabada (instancia)
+    private val _recordedSteps = mutableListOf<MacroStep>()
+    val recordedSteps: List<MacroStep> get() = _recordedSteps.toList()
+
+    // Coordenadas de inicio de toque (instancia)
+    private var touchStartX = 0f
+    private var touchStartY = 0f
+    private var touchStartTime = 0L
+    private var isTrackingTouch = false
 
     private val handler = Handler(Looper.getMainLooper())
 
