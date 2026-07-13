@@ -4,5 +4,6 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <circle android:fillColor="#FFFFFF" android:cx="12" android:cy="12" android:radius="6" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M12,6c-3.3,0 -6,2.7 -6,6s2.7,6 6,6 6,-2.7 6,-6 -2.7,-6 -6,-6z" />
 </vector>
