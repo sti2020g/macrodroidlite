@@ -17,8 +17,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityManager
-import android.widget.ImageButton
-import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.ruben.macrodroidlite.databinding.OverlayWidgetBinding
@@ -31,6 +29,9 @@ class OverlayService : Service() {
         OverlayWidgetBinding.bind(overlayView)
     }
 
+    // Captura overlay a pantalla completa
+    private var captureOverlay: View? = null
+
     private var repeatCount = 1
     private var isRecording = false
     private var isPlaying = false
@@ -41,6 +42,12 @@ class OverlayService : Service() {
     private var initialY = 0
     private var initialTouchX = 0f
     private var initialTouchY = 0f
+
+    // Coordenadas de toque durante grabación
+    private var touchStartX = 0f
+    private var touchStartY = 0f
+    private var touchStartTime = 0L
+    private var isTrackingTouch = false
 
     companion object {
         private const val NOTIFICATION_CHANNEL = "macrodroid_overlay"
@@ -86,6 +93,7 @@ class OverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        removeCaptureOverlay()
         if (::overlayView.isInitialized) {
             windowManager.removeView(overlayView)
         }
@@ -123,23 +131,27 @@ class OverlayService : Service() {
                 return@setOnClickListener
             }
 
-            if (!service.isRecording && !service.isPlaying) {
-                service.startRecording()
-                binding.txtStatus.text = "🔴 Grabando..."
-                binding.btnRecord.visibility = View.GONE
-                binding.btnStop.visibility = View.VISIBLE
-                binding.btnPlay.isEnabled = false
-            }
+            service.startRecording()
+            showCaptureOverlay(service)
+            binding.txtStatus.text = "🔴 Grabando... Toca la pantalla"
+            binding.btnRecord.visibility = View.GONE
+            binding.btnStop.visibility = View.VISIBLE
+            binding.btnPlay.isEnabled = false
         }
 
         binding.btnStop.setOnClickListener {
             val service = MacroAccessibilityService.instance
             service?.stopRecording()
             stopPlayback()
-            binding.txtStatus.text = "Grabación detenida"
+            removeCaptureOverlay()
+            binding.txtStatus.text = if (service?.recordedSteps?.size ?: 0 > 0) {
+                "${service?.recordedSteps?.size} gestos grabados"
+            } else {
+                "Grabación detenida (sin gestos)"
+            }
             binding.btnRecord.visibility = View.VISIBLE
             binding.btnStop.visibility = View.GONE
-            binding.btnPlay.isEnabled = true
+            binding.btnPlay.isEnabled = service?.recordedSteps?.isNotEmpty() ?: false
             updateUI()
         }
 
@@ -177,12 +189,80 @@ class OverlayService : Service() {
         }
     }
 
+    private fun showCaptureOverlay(service: MacroAccessibilityService) {
+        removeCaptureOverlay()
+
+        val view = View(this)
+        view.setBackgroundColor(android.graphics.Color.argb(1, 0, 0, 0)) // casi transparente (1/255 alpha)
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else
+                WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSPARENT
+        )
+        params.gravity = Gravity.TOP or Gravity.START
+
+        view.setOnTouchListener { _, event ->
+            if (!service.isRecording) return@setOnTouchListener false
+
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    touchStartX = event.x
+                    touchStartY = event.y
+                    touchStartTime = System.currentTimeMillis()
+                    isTrackingTouch = true
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!isTrackingTouch) return@setOnTouchListener false
+                    val endX = event.x
+                    val endY = event.y
+                    val elapsed = System.currentTimeMillis() - touchStartTime
+                    isTrackingTouch = false
+
+                    val dx = endX - touchStartX
+                    val dy = endY - touchStartY
+                    val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+
+                    if (dist < 30f) {
+                        service.addStep(MacroStep.Touch(touchStartX, touchStartY, elapsed.coerceAtMost(100L)))
+                    } else {
+                        service.addStep(MacroStep.Swipe(touchStartX, touchStartY, endX, endY))
+                    }
+
+                    // Actualizar contador en el widget
+                    binding.txtStatus.text = "🔴 ${service.recordedSteps.size} gestos"
+                    true
+                }
+                else -> false
+            }
+        }
+
+        windowManager.addView(view, params)
+        captureOverlay = view
+    }
+
+    private fun removeCaptureOverlay() {
+        captureOverlay?.let {
+            try { windowManager.removeView(it) } catch (_: Exception) {}
+            captureOverlay = null
+        }
+    }
+
     private fun stopPlayback() {
         val service = MacroAccessibilityService.instance
         service?.stopPlayback()
         binding.btnRecord.visibility = View.VISIBLE
         binding.btnStop.visibility = View.GONE
-        binding.btnPlay.isEnabled = true
+        binding.btnPlay.isEnabled = (service?.recordedSteps?.size ?: 0) > 0
         binding.btnRecord.isEnabled = true
         binding.txtStatus.text = "Listo"
     }
@@ -227,7 +307,6 @@ class OverlayService : Service() {
         MacroAccessibilityService.onStateChanged = {
             val s = MacroAccessibilityService.instance
             if (s?.isPlaying == false && isPlaying) {
-                // Ha terminado la reproducción
                 binding.btnRecord.visibility = View.VISIBLE
                 binding.btnStop.visibility = View.GONE
                 binding.btnPlay.isEnabled = true
