@@ -321,12 +321,7 @@ class OverlayService : Service() {
         }
     }
 
-    private fun removeCaptureOverlay() {
-        captureOverlay?.let {
-            try { windowManager.removeView(it) } catch (_: Exception) {}
-            captureOverlay = null
-        }
-    }
+
 
     private fun stopPlayback() {
         val service = MacroAccessibilityService.instance
