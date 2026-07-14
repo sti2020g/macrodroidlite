@@ -55,30 +55,13 @@ class MacroAccessibilityService : AccessibilityService() {
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_TOUCH_INTERACTION_START -> {
-                // Play Store captura los bounds del evento
-                val bounds = event.source?.let { src ->
-                    val rect = android.graphics.Rect()
-                    src.getBoundsInScreen(rect)
-                    rect
-                }
-
-                // La posición del toque la obtenemos del event
-                // En Android, podemos detectar el inicio de un toque
-                touchStartX = event.source?.let {
-                    val rect = android.graphics.Rect()
-                    it.getBoundsInScreen(rect)
-                    rect.centerX().toFloat()
-                } ?: 0f
-
-                touchStartY = event.source?.let {
-                    val rect = android.graphics.Rect()
-                    it.getBoundsInScreen(rect)
-                    rect.centerY().toFloat()
-                } ?: 0f
-
+                // Usar coordenadas directas del evento (event.x / event.y)
+                // event.source puede ser null al tocar fondos/áreas vacías
+                touchStartX = event.x
+                touchStartY = event.y
                 touchStartTime = System.currentTimeMillis()
                 isTrackingTouch = true
-                Log.d(TAG, "Touch start at ($touchStartX, $touchStartY)")
+                Log.d(TAG, "Touch start at ($touchStartX, $touchStartY) source=${event.source != null}")
             }
 
             AccessibilityEvent.TYPE_TOUCH_INTERACTION_END -> {
@@ -87,23 +70,15 @@ class MacroAccessibilityService : AccessibilityService() {
                 val elapsed = endTime - touchStartTime
                 isTrackingTouch = false
 
-                val endX = event.source?.let {
-                    val rect = android.graphics.Rect()
-                    it.getBoundsInScreen(rect)
-                    rect.centerX().toFloat()
-                } ?: touchStartX
+                val endX = event.x
+                val endY = event.y
 
-                val endY = event.source?.let {
-                    val rect = android.graphics.Rect()
-                    it.getBoundsInScreen(rect)
-                    rect.centerY().toFloat()
-                } ?: touchStartY
+                // Calcular distancia del gesto
+                val dx = endX - touchStartX
+                val dy = endY - touchStartY
+                val dist = kotlin.math.sqrt(dx * dx + dy * dy)
 
-                // Si el movimiento es muy pequeño, es un toque, no un swipe
-                val dist = kotlin.math.sqrt(
-                    (endX - touchStartX) * (endX - touchStartX) +
-                    (endY - touchStartY) * (endY - touchStartY)
-                )
+                Log.d(TAG, "Touch end at ($endX, $endY) dist=$dist elapsed=$elapsed")
 
                 if (dist < 30f) {
                     _recordedSteps.add(MacroStep.Touch(touchStartX, touchStartY, elapsed.coerceAtMost(100L)))
