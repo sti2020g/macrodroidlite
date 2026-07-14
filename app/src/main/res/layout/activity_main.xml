@@ -10,38 +10,39 @@
         android:orientation="vertical"
         android:gravity="center"
         android:layout_centerInParent="true"
-        android:padding="32dp">
+        android:padding="40dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="🎮"
-            android:textSize="64dp" />
+            android:textSize="80dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="MacroDroid Lite"
             android:textColor="#FFFFFF"
-            android:textSize="24sp"
+            android:textSize="28sp"
             android:textStyle="bold"
-            android:layout_marginTop="16dp" />
+            android:layout_marginTop="20dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Grabar y reproducir deslizamientos"
             android:textColor="#AAAAAA"
-            android:textSize="14sp"
-            android:layout_marginTop="8dp" />
+            android:textSize="16sp"
+            android:layout_marginTop="10dp" />
 
         <Button
             android:id="@+id/btn_start"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
+            android:layout_width="260dp"
+            android:layout_height="56dp"
             android:text="Iniciar overlay"
+            android:textSize="16sp"
             android:textAllCaps="false"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="40dp"
             android:backgroundTint="#FF5555" />
 
     </LinearLayout>
