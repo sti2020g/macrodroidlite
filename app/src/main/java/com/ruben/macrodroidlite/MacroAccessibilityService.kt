@@ -55,10 +55,10 @@ class MacroAccessibilityService : AccessibilityService() {
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_TOUCH_INTERACTION_START -> {
-                // Usar coordenadas directas del evento (event.x / event.y)
+                // Usar coordenadas directas del evento (event.getX / event.getY)
                 // event.source puede ser null al tocar fondos/áreas vacías
-                touchStartX = event.x
-                touchStartY = event.y
+                touchStartX = event.getX()
+                touchStartY = event.getY()
                 touchStartTime = System.currentTimeMillis()
                 isTrackingTouch = true
                 Log.d(TAG, "Touch start at ($touchStartX, $touchStartY) source=${event.source != null}")
@@ -70,8 +70,8 @@ class MacroAccessibilityService : AccessibilityService() {
                 val elapsed = endTime - touchStartTime
                 isTrackingTouch = false
 
-                val endX = event.x
-                val endY = event.y
+                val endX = event.getX()
+                val endY = event.getY()
 
                 // Calcular distancia del gesto
                 val dx = endX - touchStartX
