@@ -199,8 +199,9 @@ class OverlayService : Service() {
         val stopZoneSize = (100 * displayMetrics.density).toInt() // ~100dp zona de parada
 
         // Overlay de captura: casi transparente, captura toques
+        // Overlay semitransparente: ves la pantalla de fondo pero sabes que estás grabando
         val view = View(this)
-        view.setBackgroundColor(android.graphics.Color.argb(1, 0, 0, 0))
+        view.setBackgroundColor(android.graphics.Color.argb(40, 0, 0, 0)) // alpha 40/255 = ligeramente oscuro
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -267,7 +268,7 @@ class OverlayService : Service() {
                         service.addStep(MacroStep.Swipe(touchStartX, touchStartY, endX, endY))
                     }
 
-                    binding.txtStatus.text = "🔴 ${service.recordedSteps.size} gestos"
+                    binding.txtStatus.text = "🔴 ${service.recordedSteps.size} gestos (toca ⛔ para parar)"
                     true
                 }
                 else -> false
@@ -277,17 +278,18 @@ class OverlayService : Service() {
         windowManager.addView(view, params)
         captureOverlay = view
 
-        // Indicador visual de zona STOP (un TextView en la esquina inferior izquierda)
+        // Indicador visual de zona STOP (esquina inferior izquierda)
         val stopLabel = android.widget.TextView(this)
-        stopLabel.text = "⛔ PARAR"
-        stopLabel.setTextColor(android.graphics.Color.argb(180, 255, 80, 80))
-        stopLabel.setTextSize(11f)
-        stopLabel.setPadding(10, 6, 10, 6)
-        stopLabel.setBackgroundColor(android.graphics.Color.argb(60, 0, 0, 0))
+        stopLabel.text = "⛔  TOCA AQUÍ PARA PARAR"
+        stopLabel.setTextColor(android.graphics.Color.argb(220, 255, 60, 60))
+        stopLabel.setTextSize(13f)
+        stopLabel.setPadding(14, 10, 14, 10)
+        stopLabel.setBackgroundColor(android.graphics.Color.argb(100, 0, 0, 0))
         stopLabel.gravity = Gravity.CENTER
+        stopLabel.setTypeface(null, android.graphics.Typeface.BOLD)
 
         val labelParams = WindowManager.LayoutParams(
-            stopZoneSize,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
             android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -305,15 +307,48 @@ class OverlayService : Service() {
 
         // Guardar referencia para limpiar después
         captureOverlay?.tag = stopLabel
+
+        // Mensaje en la parte superior indicando que está grabando
+        val infoLabel = android.widget.TextView(this)
+        infoLabel.text = "🔴 GRABANDO — Los toques no se ven pero se registran"
+        infoLabel.setTextColor(android.graphics.Color.argb(200, 255, 200, 200))
+        infoLabel.setTextSize(12f)
+        infoLabel.setPadding(16, 8, 16, 8)
+        infoLabel.setBackgroundColor(android.graphics.Color.argb(80, 0, 0, 0))
+        infoLabel.gravity = Gravity.CENTER
+        infoLabel.setTypeface(null, android.graphics.Typeface.BOLD)
+
+        val infoParams = WindowManager.LayoutParams(
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else
+                WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        )
+        infoParams.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        infoParams.x = 0
+        infoParams.y = 20
+        windowManager.addView(infoLabel, infoParams)
+
+        // Guardar también el infoLabel
+        captureOverlay?.tag = Pair(stopLabel, infoLabel)
     }
 
     private fun removeCaptureOverlay() {
         captureOverlay?.let { view ->
             try {
-                // Quitar label STOP si existe
-                val label = view.tag as? android.view.View
-                if (label != null) {
-                    try { windowManager.removeView(label) } catch (_: Exception) {}
+                // Quitar labels (stop + info)
+                val labels = view.tag
+                if (labels is android.util.Pair<*, *>) {
+                    (labels.first as? android.view.View)?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
+                    (labels.second as? android.view.View)?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
+                } else if (labels is android.view.View) {
+                    try { windowManager.removeView(labels) } catch (_: Exception) {}
                 }
             } catch (_: Exception) {}
             try { windowManager.removeView(view) } catch (_: Exception) {}
