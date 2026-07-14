@@ -121,16 +121,27 @@ class MacroAccessibilityService : AccessibilityService() {
         onProgress?.invoke(index + 1, steps.size)
         Log.d(TAG, "Reproduciendo paso $index/${steps.size}: $step")
 
+        val next = {
+            playSteps(steps, index + 1, onDone)
+        }
+
+        val callback = object : AccessibilityService.GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                handler.post(next)
+            }
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                Log.w(TAG, "Gesto cancelado: $step")
+                handler.post(next)
+            }
+        }
+
         when (step) {
             is MacroStep.Touch -> {
                 val path = Path().apply { moveTo(step.x, step.y) }
                 val gesture = GestureDescription.Builder()
                     .addStroke(GestureDescription.StrokeDescription(path, 0, step.duration))
                     .build()
-                dispatchGesture(gesture, null, null)
-                handler.postDelayed({
-                    playSteps(steps, index + 1, onDone)
-                }, step.duration + 50L)
+                dispatchGesture(gesture, callback, null)
             }
 
             is MacroStep.Swipe -> {
@@ -139,12 +150,9 @@ class MacroAccessibilityService : AccessibilityService() {
                     lineTo(step.x2, step.y2)
                 }
                 val gesture = GestureDescription.Builder()
-                    .addStroke(GestureDescription.StrokeDescription(path, 0, step.duration))
+                    .addStroke(GestureDescription.StrokeDescription(path, 0, SWIPE_DURATION_MS))
                     .build()
-                dispatchGesture(gesture, null, null)
-                handler.postDelayed({
-                    playSteps(steps, index + 1, onDone)
-                }, step.duration + 50L)
+                dispatchGesture(gesture, callback, null)
             }
 
             is MacroStep.Pause -> {
