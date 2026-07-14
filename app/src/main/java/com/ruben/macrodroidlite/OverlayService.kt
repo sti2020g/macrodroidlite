@@ -192,8 +192,15 @@ class OverlayService : Service() {
     private fun showCaptureOverlay(service: MacroAccessibilityService) {
         removeCaptureOverlay()
 
+        val displayMetrics = android.util.DisplayMetrics()
+        windowManager.defaultDisplay.getMetrics(displayMetrics)
+        val screenW = displayMetrics.widthPixels
+        val screenH = displayMetrics.heightPixels
+        val stopZoneSize = (100 * displayMetrics.density).toInt() // ~100dp zona de parada
+
+        // Overlay de captura: casi transparente, captura toques
         val view = View(this)
-        view.setBackgroundColor(android.graphics.Color.argb(1, 0, 0, 0)) // casi transparente (1/255 alpha)
+        view.setBackgroundColor(android.graphics.Color.argb(1, 0, 0, 0))
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -215,16 +222,38 @@ class OverlayService : Service() {
 
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    touchStartX = event.x
-                    touchStartY = event.y
+                    val rawX = event.rawX
+                    val rawY = event.rawY
+
+                    // ⛔ Zona de parada: esquina inferior izquierda
+                    if (rawX < stopZoneSize && rawY > screenH - stopZoneSize) {
+                        // Toque en zona STOP - parar grabación
+                        isTrackingTouch = false
+                        service.stopRecording()
+                        removeCaptureOverlay()
+                        binding.btnRecord.visibility = View.VISIBLE
+                        binding.btnStop.visibility = View.GONE
+                        binding.btnPlay.isEnabled = service.recordedSteps.isNotEmpty()
+                        binding.txtStatus.text = if (service.recordedSteps.size > 0) {
+                            "✅ ${service.recordedSteps.size} gestos grabados"
+                        } else {
+                            "⛔ Grabación cancelada"
+                        }
+                        updateUI()
+                        return@setOnTouchListener true
+                    }
+
+                    // Gesto normal
+                    touchStartX = rawX
+                    touchStartY = rawY
                     touchStartTime = System.currentTimeMillis()
                     isTrackingTouch = true
                     true
                 }
                 MotionEvent.ACTION_UP -> {
                     if (!isTrackingTouch) return@setOnTouchListener false
-                    val endX = event.x
-                    val endY = event.y
+                    val endX = event.rawX
+                    val endY = event.rawY
                     val elapsed = System.currentTimeMillis() - touchStartTime
                     isTrackingTouch = false
 
@@ -238,7 +267,6 @@ class OverlayService : Service() {
                         service.addStep(MacroStep.Swipe(touchStartX, touchStartY, endX, endY))
                     }
 
-                    // Actualizar contador en el widget
                     binding.txtStatus.text = "🔴 ${service.recordedSteps.size} gestos"
                     true
                 }
@@ -248,6 +276,49 @@ class OverlayService : Service() {
 
         windowManager.addView(view, params)
         captureOverlay = view
+
+        // Indicador visual de zona STOP (un TextView en la esquina inferior izquierda)
+        val stopLabel = android.widget.TextView(this)
+        stopLabel.text = "⛔ PARAR"
+        stopLabel.setTextColor(android.graphics.Color.argb(180, 255, 80, 80))
+        stopLabel.setTextSize(11f)
+        stopLabel.setPadding(10, 6, 10, 6)
+        stopLabel.setBackgroundColor(android.graphics.Color.argb(60, 0, 0, 0))
+        stopLabel.gravity = Gravity.CENTER
+
+        val labelParams = WindowManager.LayoutParams(
+            stopZoneSize,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else
+                WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        )
+        labelParams.gravity = Gravity.BOTTOM or Gravity.START
+        labelParams.x = 0
+        labelParams.y = 0
+        windowManager.addView(stopLabel, labelParams)
+
+        // Guardar referencia para limpiar después
+        captureOverlay?.tag = stopLabel
+    }
+
+    private fun removeCaptureOverlay() {
+        captureOverlay?.let { view ->
+            try {
+                // Quitar label STOP si existe
+                val label = view.tag as? android.view.View
+                if (label != null) {
+                    try { windowManager.removeView(label) } catch (_: Exception) {}
+                }
+            } catch (_: Exception) {}
+            try { windowManager.removeView(view) } catch (_: Exception) {}
+            captureOverlay = null
+        }
     }
 
     private fun removeCaptureOverlay() {
