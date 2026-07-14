@@ -1,5 +1,6 @@
 package com.ruben.macrodroidlite
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,13 +10,16 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
+import android.provider.Settings
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityManager
 import android.widget.ImageButton
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.ruben.macrodroidlite.databinding.OverlayWidgetBinding
 
@@ -114,7 +118,8 @@ class OverlayService : Service() {
         binding.btnRecord.setOnClickListener {
             val service = MacroAccessibilityService.instance
             if (service == null) {
-                binding.txtStatus.text = "Activa el servicio de accesibilidad"
+                binding.txtStatus.text = "Abrir ajustes de accesibilidad..."
+                openAccessibilitySettings()
                 return@setOnClickListener
             }
 
@@ -141,7 +146,8 @@ class OverlayService : Service() {
         binding.btnPlay.setOnClickListener {
             val service = MacroAccessibilityService.instance
             if (service == null) {
-                binding.txtStatus.text = "Activa el servicio de accesibilidad"
+                binding.txtStatus.text = "Abrir ajustes de accesibilidad..."
+                openAccessibilitySettings()
                 return@setOnClickListener
             }
 
@@ -200,6 +206,13 @@ class OverlayService : Service() {
                 else -> false
             }
         }
+    }
+
+    private fun openAccessibilitySettings() {
+        Toast.makeText(this, "Abre Ajustes → Accesibilidad → MacroDroid Lite", Toast.LENGTH_LONG).show()
+        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
     }
 
     private fun updateUI() {
